@@ -1120,6 +1120,10 @@ func NewBootstrapPod(
 	}
 
 	startUpCommand := "./opensearch-docker-entrypoint.sh"
+	// If a custom command is specified, use it.
+	if len(cr.Spec.General.Command) > 0 {
+		startUpCommand = cr.Spec.General.Command
+	}
 
 	// Use General.PluginsList by default, override with Bootstrap.PluginsList if set
 	pluginslist := cr.Spec.General.PluginsList
