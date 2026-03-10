@@ -1930,8 +1930,59 @@ nodePools:
         - name: rw-plugins
           mountPath: /plugins-tmp
       command: [
-        "bash", 
-        "-c", 
+        "bash",
+        "-c",
         "bin/opensearch-plugin -v install --batch repository-s3 && cp -r /usr/share/opensearch/plugins/* /plugins-tmp && cp -r /usr/share/opensearch/config/* /config-tmp"
       ]
 ```
+
+## Running Wazuh Indexer
+
+[Wazuh Indexer](https://github.com/wazuh/wazuh-indexer) is a fork of OpenSearch used by the Wazuh security platform. The operator supports it with two configuration fields that cannot be derived from the image automatically.
+
+### What differs from OpenSearch
+
+| Aspect | OpenSearch | Wazuh Indexer |
+|---|---|---|
+| Installation directory | `/usr/share/opensearch` | `/usr/share/wazuh-indexer` |
+| Docker entrypoint | `./opensearch-docker-entrypoint.sh` | `/usr/local/bin/docker-entrypoint.sh opensearchwrapper` |
+| Binary names (`opensearch`, `opensearch-plugin`, `opensearch-keystore`) | unchanged | unchanged |
+| REST API endpoints | unchanged | unchanged |
+| Config file names (`opensearch.yml`, `opensearch.keystore`) | unchanged | unchanged |
+| `OPENSEARCH_INITIAL_ADMIN_PASSWORD` | used | used |
+
+### Configuration
+
+Set `opensearchHome` and `command` under `spec.general`:
+
+```yaml
+apiVersion: opensearch.org/v1
+kind: OpenSearchCluster
+metadata:
+  name: wazuh-indexer-cluster
+  namespace: default
+spec:
+  general:
+    serviceName: wazuh-indexer-cluster
+    version: "2.8.0"
+    opensearchHome: /usr/share/wazuh-indexer
+    command: "/usr/local/bin/docker-entrypoint.sh opensearchwrapper"
+    image:
+      image: wazuh/wazuh-indexer:4.x.x  # use your target wazuh-indexer version
+  nodePools:
+    - component: nodes
+      replicas: 3
+      diskSize: "30Gi"
+      resources:
+        requests:
+          memory: "4Gi"
+          cpu: "500m"
+        limits:
+          memory: "4Gi"
+          cpu: "500m"
+      roles:
+        - "cluster_manager"
+        - "data"
+```
+
+`opensearchHome` tells the operator where to mount config files, TLS certificates, the keystore, and the data volume inside the container. `command` overrides the startup script for both the bootstrap pod and regular node pods.
